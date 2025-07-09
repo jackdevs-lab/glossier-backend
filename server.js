@@ -4,6 +4,7 @@ const cors = require('cors');
 const sanitizeHtml = require('sanitize-html');
 const app = express();
 const path = require('path');
+require('dotenv').config();
 
 // Middleware
 app.use(cors({origin: ['http://localhost:3000', 'https://glossier-frontend.vercel.app/'],
