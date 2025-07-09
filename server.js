@@ -6,7 +6,7 @@ const app = express();
 const path = require('path');
 
 // Middleware
-app.use(cors({origin: ['http://localhost:3000', 'https://glossier-frontend-r0vwuiwa8-jackdevs-labs-projects.vercel.app/'],
+app.use(cors({origin: ['http://localhost:3000', 'https://glossier-frontend.vercel.app/'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type']}));
 app.use(express.json());
