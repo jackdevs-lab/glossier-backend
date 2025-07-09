@@ -8,9 +8,27 @@ require('dotenv').config();
 
 // Middleware
 app.use(cors({
-    origin: '*',
+    origin: (origin, callback) => {
+        console.log(`CORS check for origin: ${origin}`);
+        const allowedOrigins = ['http://localhost:3000', 'https://glossier-frontend.vercel.app', 'https://glossier-frontend.vercel.app/'];
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            console.error(`CORS rejected for origin: ${origin}`);
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type']}));
+    allowedHeaders: ['Content-Type']
+}));
+app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} from Origin: ${req.get('Origin')}`);
+    next();
+});
+app.options('*', cors(), (req, res) => {
+    console.log(`[${new Date().toISOString()}] Handling OPTIONS request for ${req.url}`);
+    res.status(200).end();
+});
 app.use(express.json());
 app.use(express.static('public'));
 
@@ -69,18 +87,18 @@ app.get('/api/products', async (req, res) => {
 });
 
 app.get('/api/products/:category', async (req, res) => {
-console.log(`Handling /api/products/${req.params.category} at ${new Date().toISOString()}`);
+    console.log(`[${new Date().toISOString()}] Handling /api/products/${req.params.category}`);
     try {
         const client = await initializeClient();
         const sheets = google.sheets({ version: 'v4', auth: client });
         const category = sanitizeHtml(req.params.category);
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId,
-            range: 'Sheet1!A:G', // Confirm this matches your sheet name
+            range: 'Sheet1!A:G',
         });
         const rows = response.data.values || [];
         if (rows.length <= 1) {
-            console.log('No product data found in the sheet.');
+            console.log(`No product data found for ${category}`);
             return res.json([]);
         }
         const products = rows.slice(1).map(row => ({
@@ -95,11 +113,10 @@ console.log(`Handling /api/products/${req.params.category} at ${new Date().toISO
         console.log(`Filtered products for ${category}:`, products);
         res.json(products);
     } catch (error) {
-        console.error('Error in /api/products/:category:', error);
+        console.error(`Error in /api/products/${category}:`, error);
         res.status(500).json({ success: false, error: 'Failed to fetch products', details: error.message });
     }
 });
-
 app.post('/api/products', async (req, res) => {
     try {
         const client = await initializeClient();
@@ -227,7 +244,7 @@ app.get('*', (req, res) => {
     }
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 1000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
