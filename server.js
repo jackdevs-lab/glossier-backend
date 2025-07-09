@@ -7,7 +7,8 @@ const path = require('path');
 require('dotenv').config();
 
 // Middleware
-app.use(cors({origin: ['http://localhost:3000', 'https://glossier-frontend.vercel.app/'],
+app.use(cors({
+    origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type']}));
 app.use(express.json());
