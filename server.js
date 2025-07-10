@@ -1,40 +1,50 @@
 const express = require('express');
 const { google } = require('googleapis');
-const cors = require('cors');
 const sanitizeHtml = require('sanitize-html');
 const app = express();
 const path = require('path');
 require('dotenv').config();
 
 // Middleware
-app.use(cors({
-    origin: (origin, callback) => {
-        console.log(`CORS check for origin: ${origin}`);
-        const allowedOrigins = ['http://localhost:3000', 'https://glossier-frontend.vercel.app', 'https://glossier-frontend.vercel.app/'];
-        if (!origin || allowedOrigins.includes(origin)) {
-            callback(null, true);
-        } else {
-            console.error(`CORS rejected for origin: ${origin}`);
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type']
-}));
-app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} from Origin: ${req.get('Origin')}`);
-    next();
-});
-app.options('*', cors(), (req, res) => {
-    console.log(`[${new Date().toISOString()}] Handling OPTIONS request for ${req.url}`);
-    res.status(200).end();
-});
 app.use(express.json());
 app.use(express.static('public'));
 
+// Custom CORS middleware
+app.use((req, res, next) => {
+    const allowedOrigins = ['http://localhost:3000', 'https://glossier-frontend.vercel.app', 'https://glossier-frontend.vercel.app/'];
+    const origin = req.get('Origin');
+    console.log(`[${new Date().toISOString()}] Origin received: ${origin}`);
+
+    if (!origin || allowedOrigins.includes(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin || 'https://glossier-frontend.vercel.app');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    } else {
+        console.error(`[${new Date().toISOString()}] CORS rejected for origin: ${origin}`);
+    }
+
+    // Handle preflight requests
+    if (req.method === 'OPTIONS') {
+        console.log(`[${new Date().toISOString()}] Handling OPTIONS for ${req.url}`);
+        return res.status(200).end();
+    }
+
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} from Origin: ${origin}`);
+    next();
+});
+
+// Log response headers before sending
+app.use((req, res, next) => {
+    const originalJson = res.json;
+    res.json = function (body) {
+        console.log(`[${new Date().toISOString()}] Sending response for ${req.url} with headers:`, res.getHeaders());
+        return originalJson.call(this, body);
+    };
+    next();
+});
+
 // Google Sheets configuration
 const spreadsheetId = '1L6hYMNd6jyWfR5FGAC8hWmJ78B_4jLtXATwqInHzE4c';
-require('dotenv').config();
 
 async function initializeClient() {
     try {
@@ -50,11 +60,8 @@ async function initializeClient() {
         throw error;
     }
 }
+
 console.log('Server starting...');
-app.use((req, res, next) => {
-    console.log(`Request: ${req.method} ${req.url}`);
-    next();
-});
 
 app.get('/api/products', async (req, res) => {
     try {
@@ -62,7 +69,7 @@ app.get('/api/products', async (req, res) => {
         const sheets = google.sheets({ version: 'v4', auth: client });
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId,
-            range: 'Sheet1!A:G', // Confirm this matches your sheet name
+            range: 'Sheet1!A:G',
         });
         const rows = response.data.values || [];
         if (rows.length <= 1) {
@@ -117,6 +124,7 @@ app.get('/api/products/:category', async (req, res) => {
         res.status(500).json({ success: false, error: 'Failed to fetch products', details: error.message });
     }
 });
+
 app.post('/api/products', async (req, res) => {
     try {
         const client = await initializeClient();
@@ -181,10 +189,10 @@ app.put('/api/products/:id', async (req, res) => {
         });
         const rows = response.data.values || [];
         const rowIndex = rows.findIndex(row => parseInt(row[0]) === id);
-        if (rowIndex > 0) { // Adjust for 0-based index after slicing
+        if (rowIndex > 0) {
             await sheets.spreadsheets.values.update({
                 spreadsheetId,
-                range: `Sheet1!A${rowIndex + 2}:G${rowIndex + 2}`, // +2 because slice(1) skips header
+                range: `Sheet1!A${rowIndex + 2}:G${rowIndex + 2}`,
                 valueInputOption: 'RAW',
                 resource: {
                     values: [[
@@ -223,7 +231,7 @@ app.delete('/api/products/:id', async (req, res) => {
         if (rowIndex > 0) {
             await sheets.spreadsheets.values.clear({
                 spreadsheetId,
-                range: `Sheet1!A${rowIndex + 2}:G${rowIndex + 2}`, // +2 because slice(1) skips header
+                range: `Sheet1!A${rowIndex + 2}:G${rowIndex + 2}`,
             });
             res.json({ success: true });
         } else {
@@ -244,7 +252,7 @@ app.get('*', (req, res) => {
     }
 });
 
-const PORT = process.env.PORT || 1000;
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
