@@ -11,6 +11,7 @@ app.use(express.static('public'));
 
 // Custom CORS middleware
 app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] Middleware executing for ${req.method} ${req.url}`);
     const allowedOrigins = ['http://localhost:3000', 'https://glossier-frontend.vercel.app', 'https://glossier-frontend.vercel.app/'];
     const origin = req.get('Origin');
     console.log(`[${new Date().toISOString()}] Origin received: ${origin}`);
